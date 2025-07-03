@@ -1,0 +1,127 @@
+package com.example.projekt_roslinki2;
+
+import android.net.Uri;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.bumptech.glide.Glide;
+
+import java.util.List;
+
+
+public class PlantAdapter extends RecyclerView.Adapter<PlantAdapter.PlantViewHolder> {
+
+    private List<Rosliny> plants;
+    private OnDeleteClickListener deleteClickListener;
+
+    public interface OnDeleteClickListener {
+        void onDeleteClick(int position);
+    }
+
+    public PlantAdapter(List<Rosliny> plants, OnDeleteClickListener listener) {
+        this.plants = plants;
+        this.deleteClickListener = listener;
+    }
+
+    @NonNull
+    @Override
+    public PlantViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.plant_item, parent, false);
+        return new PlantViewHolder(view);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull PlantViewHolder holder, int position) {
+        Rosliny plant = plants.get(position);
+        holder.bind(plant);
+    }
+
+    @Override
+    public int getItemCount() {
+        return plants != null ? plants.size() : 0;
+    }
+
+    class PlantViewHolder extends RecyclerView.ViewHolder {
+        TextView textViewName, textViewDetails;
+        ImageButton btnDelete;
+        ImageView imageViewPlant;
+
+        public PlantViewHolder(@NonNull View itemView) {
+            super(itemView);
+            textViewName = itemView.findViewById(R.id.textViewPlantName);
+            textViewDetails = itemView.findViewById(R.id.textViewPlantDetails);
+            btnDelete = itemView.findViewById(R.id.btnDeletePlant);
+            imageViewPlant = itemView.findViewById(R.id.imageViewPlant);
+        }
+
+        void bind(Rosliny plant) {
+            textViewName.setText(plant.getName());
+
+            textViewDetails.setVisibility(View.GONE);
+            imageViewPlant.setVisibility(View.GONE);
+
+            textViewName.setOnClickListener(v -> {
+                if (textViewDetails.getVisibility() == View.GONE) {
+                    textViewDetails.setVisibility(View.VISIBLE);
+                    textViewDetails.setText(plant.toString());
+                    imageViewPlant.setVisibility(View.VISIBLE);
+
+                    if (plant.getUserImageUri() != null && !plant.getUserImageUri().isEmpty()) {
+                        try {
+                            Uri imageUri = Uri.parse(plant.getUserImageUri());
+                            Glide.with(itemView.getContext())
+                                    .load(imageUri)
+                                    .placeholder(R.drawable.warzywa)
+                                    .error(R.drawable.warzywa)
+                                    .into(imageViewPlant);
+                        } catch (Exception e) {
+                            imageViewPlant.setImageResource(R.drawable.warzywa);
+                        }
+                    } else {
+                        int imageResId = getImageForPlant(plant.getName());
+                        imageViewPlant.setImageResource(imageResId);
+                    }
+                } else {
+                    textViewDetails.setVisibility(View.GONE);
+                    imageViewPlant.setVisibility(View.GONE);
+                }
+            });
+
+            btnDelete.setOnClickListener(v -> {
+                if (deleteClickListener != null) {
+                    int position = getAdapterPosition();
+                    if (position == RecyclerView.NO_POSITION) {
+                        Log.w("PlantAdapter", "Kliknięto przycisk usuwania, ale pozycja jest NO_POSITION");
+                        return;
+                    }
+                    deleteClickListener.onDeleteClick(position);
+                }
+            });
+        }
+    }
+
+    private int getImageForPlant(String plantName) {
+        switch (plantName.toLowerCase()) {
+            case "cebula":
+                return R.drawable.cebula;
+            case "groszek":
+                return R.drawable.groszek;
+            case "gorczyca":
+                return R.drawable.gorczyca;
+            case "nasturcja":
+                return R.drawable.nasturcja;
+            case "rzodkiewka":
+                return R.drawable.rzodkiewka;
+            default:
+                return R.drawable.warzywa;
+        }
+    }
+}
