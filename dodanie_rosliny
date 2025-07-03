@@ -1,0 +1,361 @@
+package com.example.projekt_roslinki2;
+
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.net.Uri;
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
+import android.graphics.Color;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.bumptech.glide.Glide;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.List;
+
+public class dodanie_rosliny extends AppCompatActivity {
+
+    private EditText editTextName, editTextSeedSize, editTextWaterTimes, editTextGrowthTime;
+    private Button btnSave;
+    private RecyclerView recyclerView;
+    private PlantAdapter adapter;
+
+    private static final List<Rosliny> plantList = new ArrayList<>();
+    private static final String PREFS_NAME = "plants_prefs";
+    private static final String KEY_PLANTS = "plants_list";
+
+    private static final List<Rosliny> BASE_PLANTS = List.of(
+            new Rosliny("cebula", "2", 3, 30),
+            new Rosliny("rzodkiewka", "2", 3, 25),
+            new Rosliny("groszek", "1", 1, 40),
+            new Rosliny("gorczyca", "3", 2, 35),
+            new Rosliny("nasturcja", "2", 1, 45)
+    );
+
+    private ActivityResultLauncher<String> imagePickerLauncher;
+    private int selectedPlantPosition = -1; // która roślina chce wybrać zdjęcie
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        setContentView(R.layout.activity_dodanie_rosliny);
+
+
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.dodanie_rosliny), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            return insets;
+        });
+
+        editTextName = findViewById(R.id.editTextPlantName);
+        editTextSeedSize = findViewById(R.id.editTextSeedSize);
+        editTextWaterTimes = findViewById(R.id.editTextWaterTimes);
+        editTextGrowthTime = findViewById(R.id.editTextGrowthTime);
+        btnSave = findViewById(R.id.btnSavePlant);
+        recyclerView = findViewById(R.id.recyclerViewPlants);
+        editTextName.setTextColor(Color.BLACK);
+        editTextSeedSize.setTextColor(Color.BLACK);
+        editTextWaterTimes.setTextColor(Color.BLACK);
+        editTextGrowthTime.setTextColor(Color.BLACK);
+        loadPlantsFromPrefs();
+
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        adapter = new PlantAdapter(plantList, position -> {
+            Rosliny plant = plantList.get(position);
+            for (Rosliny basePlant : BASE_PLANTS) {
+                if (basePlant.getName().equalsIgnoreCase(plant.getName())) {
+                    Toast.makeText(dodanie_rosliny.this, "Nie można usunąć rośliny bazowej!", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            }
+
+            adapter.removePlant(position);
+            savePlantsToPrefs();
+            Toast.makeText(dodanie_rosliny.this, "Roślina usunięta", Toast.LENGTH_SHORT).show();
+        }, position -> {
+            // Obsługa wyboru zdjęcia przez użytkownika dla roślin użytkownika
+            Rosliny plant = plantList.get(position);
+            boolean isBasePlant = false;
+            for (Rosliny basePlant : BASE_PLANTS) {
+                if (basePlant.getName().equalsIgnoreCase(plant.getName())) {
+                    isBasePlant = true;
+                    break;
+                }
+            }
+            if (!isBasePlant) {
+                selectedPlantPosition = position;
+                imagePickerLauncher.launch("image/*");
+            }
+        });
+        recyclerView.setAdapter(adapter);
+
+        btnSave.setOnClickListener(v -> {
+            String name = editTextName.getText().toString().trim();
+            String seedSize = editTextSeedSize.getText().toString().trim();
+            String waterText = editTextWaterTimes.getText().toString().trim();
+            String growthTimeText = editTextGrowthTime.getText().toString().trim();
+
+            if (name.isEmpty() || seedSize.isEmpty() || waterText.isEmpty() || growthTimeText.isEmpty()) {
+                Toast.makeText(this, "Wypełnij wszystkie pola!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            int waterTimes;
+            int growthTime;
+            try {
+                waterTimes = Integer.parseInt(waterText);
+                growthTime = Integer.parseInt(growthTimeText);
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Podlewanie i czas wzrostu muszą być liczbami!", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            for (Rosliny plant : plantList) {
+                if (plant.getName().equalsIgnoreCase(name)) {
+                    Toast.makeText(this, "Roślina o tej nazwie już istnieje!", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            }
+            Rosliny newPlant = new Rosliny(name, seedSize, waterTimes, growthTime);
+            adapter.addPlant(newPlant);
+            savePlantsToPrefs();
+
+            Toast.makeText(this, "Roślina zapisana!", Toast.LENGTH_SHORT).show();
+
+            editTextName.setText("");
+            editTextSeedSize.setText("");
+            editTextWaterTimes.setText("");
+            editTextGrowthTime.setText("");
+        });
+
+        ImageButton btnBack = findViewById(R.id.btnBackHomedodanie_rosliny);
+        btnBack.setOnClickListener(v -> {
+            Intent intent = new Intent(dodanie_rosliny.this, MainActivity.class);
+            startActivity(intent);
+            finish();
+        });
+
+        // Rejestracja launchera do wyboru obrazu
+        imagePickerLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+            if (uri != null && selectedPlantPosition != -1) {
+                // Zapewnienie trwałego pozwolenia na dostęp do URI
+                try {
+                    getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } catch (SecurityException e) {
+                    e.printStackTrace();
+                }
+
+                Rosliny plant = plantList.get(selectedPlantPosition);
+                plant.setUserImageUri(uri.toString());
+                adapter.notifyItemChanged(selectedPlantPosition);
+                savePlantsToPrefs();
+                Toast.makeText(dodanie_rosliny.this, "Zdjęcie przypisane do rośliny!", Toast.LENGTH_SHORT).show();
+            }
+            selectedPlantPosition = -1;
+        });
+    }
+
+    private void savePlantsToPrefs() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        Gson gson = new Gson();
+        String json = gson.toJson(plantList);
+        editor.putString(KEY_PLANTS, json);
+        editor.apply();
+    }
+
+    private void loadPlantsFromPrefs() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String json = prefs.getString(KEY_PLANTS, null);
+        plantList.clear();
+
+        if (json != null) {
+            Gson gson = new Gson();
+            Type type = new TypeToken<List<Rosliny>>() {
+            }.getType();
+            List<Rosliny> savedPlants = gson.fromJson(json, type);
+            if (savedPlants != null) {
+                plantList.addAll(savedPlants);
+            }
+        }
+
+        for (Rosliny basePlant : BASE_PLANTS) {
+            boolean exists = false;
+            for (Rosliny plant : plantList) {
+                if (plant.getName().equalsIgnoreCase(basePlant.getName())) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                plantList.add(basePlant);
+            }
+        }
+    }
+
+    private static class PlantAdapter extends RecyclerView.Adapter<PlantAdapter.PlantViewHolder> {
+
+        private final List<Rosliny> plantList;
+        private final List<Boolean> expandedStates;
+        private final OnPlantActionListener deleteListener;
+        private final OnPlantActionListener changeImageListener;
+
+        interface OnPlantActionListener {
+            void onAction(int position);
+        }
+
+        public PlantAdapter(List<Rosliny> plantList, OnPlantActionListener deleteListener, OnPlantActionListener changeImageListener) {
+            this.plantList = plantList;
+            this.deleteListener = deleteListener;
+            this.changeImageListener = changeImageListener;
+            this.expandedStates = new ArrayList<>();
+            for (int i = 0; i < plantList.size(); i++) {
+                expandedStates.add(false);
+            }
+        }
+
+        public void addPlant(Rosliny roslina) {
+            plantList.add(roslina);
+            expandedStates.add(false);
+            notifyItemInserted(plantList.size() - 1);
+        }
+
+        public void removePlant(int position) {
+            if (position < 0 || position >= plantList.size()) return;
+            plantList.remove(position);
+            expandedStates.remove(position);
+            notifyItemRemoved(position);
+        }
+
+        @NonNull
+        @Override
+        public PlantViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.plant_item, parent, false);
+            return new PlantViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull PlantViewHolder holder, int position) {
+            Rosliny plant = plantList.get(position);
+            holder.nameTextView.setText(plant.getName());
+            holder.detailsTextView.setText(plant.toString());
+
+            boolean expanded = expandedStates.get(position);
+            holder.detailsTextView.setVisibility(expanded ? View.VISIBLE : View.GONE);
+
+            if (expanded) {
+                if (isBasePlant(plant.getName())) {
+                    int imageResId = getImageForPlant(plant.getName());
+                    holder.imageViewPlant.setImageResource(imageResId);
+                } else if (plant.getUserImageUri() != null) {
+                    // Ładowanie obrazka z URI przy pomocy Glide
+                    Glide.with(holder.itemView.getContext())
+                            .load(Uri.parse(plant.getUserImageUri()))
+                            .placeholder(R.drawable.warzywa)
+                            .error(R.drawable.warzywa)
+                            .into(holder.imageViewPlant);
+                } else {
+                    holder.imageViewPlant.setImageResource(R.drawable.warzywa);
+                }
+                holder.imageViewPlant.setVisibility(View.VISIBLE);
+            } else {
+                holder.imageViewPlant.setVisibility(View.GONE);
+            }
+
+            boolean isBase = isBasePlant(plant.getName());
+            holder.deleteButton.setVisibility(isBase ? View.GONE : View.VISIBLE);
+            holder.changeImageButton.setVisibility(isBase ? View.GONE : View.VISIBLE);
+
+            holder.itemView.setOnClickListener(v -> {
+                boolean currentExpanded = expandedStates.get(position);
+                expandedStates.set(position, !currentExpanded);
+                notifyItemChanged(position);
+            });
+
+            holder.deleteButton.setOnClickListener(v -> {
+                int pos = holder.getAdapterPosition();
+                if (pos != RecyclerView.NO_POSITION) {
+                    deleteListener.onAction(pos);
+                }
+            });
+
+            holder.changeImageButton.setOnClickListener(v -> {
+                int pos = holder.getAdapterPosition();
+                if (pos != RecyclerView.NO_POSITION) {
+                    changeImageListener.onAction(pos);
+                }
+            });
+        }
+
+        private boolean isBasePlant(String name) {
+            for (Rosliny basePlant : BASE_PLANTS) {
+                if (basePlant.getName().equalsIgnoreCase(name)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public int getItemCount() {
+            return plantList.size();
+        }
+
+        private int getImageForPlant(String plantName) {
+            switch (plantName.toLowerCase()) {
+                case "cebula":
+                    return R.drawable.cebula;
+                case "rzodkiewka":
+                    return R.drawable.rzodkiewka;
+                case "groszek":
+                    return R.drawable.groszek;
+                case "gorczyca":
+                    return R.drawable.gorczyca;
+                case "nasturcja":
+                    return R.drawable.nasturcja;
+                default:
+                    return R.drawable.warzywa;
+            }
+        }
+
+        static class PlantViewHolder extends RecyclerView.ViewHolder {
+            TextView nameTextView;
+            TextView detailsTextView;
+            ImageButton deleteButton;
+            ImageButton changeImageButton;
+            ImageView imageViewPlant;
+
+            public PlantViewHolder(@NonNull View itemView) {
+                super(itemView);
+                nameTextView = itemView.findViewById(R.id.textViewPlantName);
+                detailsTextView = itemView.findViewById(R.id.textViewPlantDetails);
+                deleteButton = itemView.findViewById(R.id.btnDeletePlant);
+                imageViewPlant = itemView.findViewById(R.id.imageViewPlant);
+                changeImageButton = itemView.findViewById(R.id.btnChangeImagePlant);
+            }
+        }
+    }
+
+    public static List<Rosliny> getPlantList() {
+        return plantList;
+    }
+}
