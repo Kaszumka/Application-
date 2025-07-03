@@ -1,6 +1,6 @@
 # Smart Plant Management App
 
-This Android application is designed to work with a custom-built device that automatically plants and waters plants. It connects via Bluetooth to an Arduino microcontroller, which controls two stepper motors (each using a different driver). The system provides an intuitive interface for managing plants and interacting with the physical device.
+This Android application is designed to work with a custom-built device that automatically plants and waters plants. It connects via Bluetooth to an Arduino microcontroller, which controls two stepper motors (each using a different driver). The system provides an intuitive interface for managing plants and interacting with the physical device. To activate the Arduino code, the app sends the command START Smart Plant Management App via Bluetooth once the connection is established
 
 ## Features
 
