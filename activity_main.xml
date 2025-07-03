@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center"
+    android:background="#FAFAFA"
+    tools:context="com.example.projekt_roslinki2.MainActivity">
+
+    <Button
+        android:id="@+id/btnStart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Start"
+        android:textColor="#000000"/>
+
+    <Button
+        android:id="@+id/btnAddPlant"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Dodanie Rośliny"
+        android:layout_marginTop="16dp"
+        android:textColor="#000000"/>
+
+    <Button
+        android:id="@+id/btnShelves"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Półki"
+        android:layout_marginTop="16dp"
+        android:textColor="#000000"/>
+
+    <Button
+        android:id="@+id/btnStop"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Stop"
+        android:layout_marginTop="16dp"
+        android:textColor="#000000"/>
+
+    <Button
+        android:id="@+id/btnBackToStart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Powrót na Start"
+        android:layout_marginTop="16dp"
+        android:textColor="#000000"/>
+
+    <ImageButton
+        android:id="@+id/btnNotifications"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_android_black_24dp"
+        android:contentDescription="Powiadomienia"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:layout_marginTop="16dp"
+        android:layout_gravity="center_horizontal"
+        android:textColor="#000000"/>
+
+    <ImageButton
+        android:id="@+id/btnWyjscie"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/baseline_exit_to_app_24"
+        android:contentDescription="Wyjscie"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:layout_gravity="center_horizontal" />
+
+    <ImageButton
+        android:id="@+id/btnBluetooth"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:src="@drawable/outline_bigtop_updates_24"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Połącz przez Bluetooth"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="24dp" />
+
+</LinearLayout>
