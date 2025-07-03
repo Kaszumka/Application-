@@ -1,0 +1,46 @@
+package com.example.projekt_roslinki2;
+
+public class Rosliny {
+    private String name;
+    private String seedSize;
+    private int waterTimes;
+    private int growthTime;
+    private String userImageUri;  // URI obrazka użytkownika
+
+    public Rosliny(String name, String seedSize, int waterTimes, int growthTime) {
+        this.name = name;
+        this.seedSize = seedSize;
+        this.waterTimes = waterTimes;
+        this.growthTime = growthTime;
+        this.userImageUri = null; // domyślnie brak zdjęcia użytkownika
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getSeedSize() {
+        return seedSize;
+    }
+
+    public int getWaterTimes() {
+        return waterTimes;
+    }
+
+    public int getGrowthTime() {
+        return growthTime;
+    }
+
+    public String getUserImageUri() {
+        return userImageUri;
+    }
+
+    public void setUserImageUri(String userImageUri) {
+        this.userImageUri = userImageUri;
+    }
+
+    @Override
+    public String toString() {
+        return "Rozmiar nasion: " + seedSize + ", Podlewanie: " + waterTimes + " razy dziennie, Czas wzrostu: " + growthTime + " dni";
+    }
+}
