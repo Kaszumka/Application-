@@ -1,0 +1,333 @@
+package com.example.projekt_roslinki2;
+
+import android.Manifest;
+import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+
+public class MainActivity extends AppCompatActivity {
+
+    Button btnStart, btnAddPlant, btnShelves, btnStop, btnBackToStart;
+    ImageButton btnWyjscie, btnBluetooth, btnDzwonek;
+
+    private static final String PREFS_NAME = "ShelfPrefs";
+    private static final int REQUEST_ENABLE_BT = 1;
+    private static final int REQUEST_PERMISSION_BT = 2;
+    private static final String PREF_ARDUINO_ADDRESS = "arduino_mac_address";
+
+    private BluetoothAdapter bluetoothAdapter;
+    private final List<BluetoothDevice> foundDevices = new ArrayList<>();
+    private final List<String> deviceNames = new ArrayList<>();
+
+    // BroadcastReceiver do wykrywania urządzeń Bluetooth oraz zakończenia skanowania
+    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+        @SuppressLint("MissingPermission")
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+
+            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (device != null && !foundDevices.contains(device)) {
+                    String name = null;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                            name = device.getName();
+                        }
+                    } else {
+                        name = device.getName();
+                    }
+                    foundDevices.add(device);
+                    deviceNames.add(name != null ? name : device.getAddress());
+                }
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+                // Skanowanie zakończone - pokaż dialog z urządzeniami
+                if (foundDevices.isEmpty()) {
+                    Toast.makeText(context, "Nie znaleziono żadnych urządzeń", Toast.LENGTH_SHORT).show();
+                } else {
+                    showDevicesDialog();
+                }
+            }
+        }
+    };
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        btnStart = findViewById(R.id.btnStart);
+        btnAddPlant = findViewById(R.id.btnAddPlant);
+        btnShelves = findViewById(R.id.btnShelves);
+        btnStop = findViewById(R.id.btnStop);
+        btnBackToStart = findViewById(R.id.btnBackToStart);
+        btnWyjscie = findViewById(R.id.btnWyjscie);
+        btnDzwonek = findViewById(R.id.btnNotifications);
+        btnBluetooth = findViewById(R.id.btnBluetooth);
+
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        // Rejestracja BroadcastReceiver dla znalezienia urządzeń i zakończenia skanowania
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothDevice.ACTION_FOUND);
+        filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+        registerReceiver(receiver, filter);
+
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+
+        btnBluetooth.setOnClickListener(v -> {
+            if (bluetoothAdapter == null) {
+                Toast.makeText(this, "Bluetooth niedostępny", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (!bluetoothAdapter.isEnabled()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH_CONNECT}, REQUEST_PERMISSION_BT);
+                        return;
+                    }
+                }
+                startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), REQUEST_ENABLE_BT);
+                return;
+            }
+
+            if (!checkPermissions()) {
+                requestPermissions();
+                return;
+            }
+
+            startDiscovery();
+        });
+
+
+        btnStart.setOnClickListener(v -> {
+            long now = System.currentTimeMillis();
+            SharedPreferences.Editor editor = prefs.edit();
+            int shelvesCount = prefs.getInt("shelves_count", 4);
+
+            for (int i = 0; i < shelvesCount; i++) {
+                String prefix = "shelf" + (i + 1);
+                String plantKey = prefix + "_plant";
+                String growthTimeKey = prefix + "_growthTime";
+                String startTimeKey = prefix + "_startTime";
+
+                String currentPlant = prefs.getString(plantKey, null);
+                int currentGrowthTime = prefs.getInt(growthTimeKey, -1);
+                long currentStartTime = prefs.getLong(startTimeKey, -1);
+
+                if (currentPlant != null && currentGrowthTime > 0) {
+                    String previousPlant = prefs.getString(plantKey + "_last", null);
+                    int previousGrowthTime = prefs.getInt(growthTimeKey + "_last", -1);
+                    boolean changed = !currentPlant.equals(previousPlant) || currentGrowthTime != previousGrowthTime;
+
+                    if (currentStartTime == -1 || changed) {
+                        editor.putLong(startTimeKey, now);
+                        editor.putString(plantKey + "_last", currentPlant);
+                        editor.putInt(growthTimeKey + "_last", currentGrowthTime);
+                    }
+                }
+            }
+
+            editor.apply();
+
+            sendBluetoothCommand("START");
+
+            startActivity(new Intent(MainActivity.this, ProgressActivity.class));
+        });
+
+        btnAddPlant.setOnClickListener(v -> startActivity(new Intent(this, dodanie_rosliny.class)));
+        btnShelves.setOnClickListener(v -> startActivity(new Intent(this, ShelfActivity.class)));
+        btnStop.setOnClickListener(v -> Toast.makeText(this, "Stop (brak implementacji)", Toast.LENGTH_SHORT).show());
+        btnBackToStart.setOnClickListener(v -> Toast.makeText(this, "Powrót na Start (brak implementacji)", Toast.LENGTH_SHORT).show());
+
+        btnWyjscie.setOnClickListener(v -> {
+            new AlertDialog.Builder(this)
+                    .setTitle("Wyjście")
+                    .setMessage("Czy na pewno chcesz wyjść z aplikacji?")
+                    .setPositiveButton("Tak", (dialog, which) -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                            finishAffinity();
+                        } else {
+                            finish();
+                        }
+                    })
+                    .setNegativeButton("Anuluj", null)
+                    .show();
+        });
+
+        btnDzwonek.setOnClickListener(v -> {
+            int count = prefs.getInt("shelves_count", 4);
+            long now = System.currentTimeMillis();
+            SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy", Locale.getDefault());
+            StringBuilder msg = new StringBuilder();
+
+            for (int i = 0; i < count; i++) {
+                String prefix = "shelf" + (i + 1);
+                String plant = prefs.getString(prefix + "_plant", null);
+                int days = prefs.getInt(prefix + "_growthTime", -1);
+                long start = prefs.getLong(prefix + "_startTime", -1);
+
+                if (plant != null && days > 0) {
+                    msg.append("Półka ").append(i + 1).append(": ").append(plant);
+                    if (start > 0) {
+                        long elapsed = now - start;
+                        long total = days * 24L * 60 * 60 * 1000;
+                        long left = Math.max(0, total - elapsed);
+
+                        msg.append("\nStart: ").append(sdf.format(new Date(start)));
+
+                        if (left > 0) {
+                            long d = left / (1000 * 60 * 60 * 24);
+                            long h = (left / (1000 * 60 * 60)) % 24;
+                            long m = (left / (1000 * 60)) % 60;
+                            long s = (left / 1000) % 60;
+
+                            msg.append("\nPozostało: ")
+                                    .append(d).append(" dni, ")
+                                    .append(h).append(" godz, ")
+                                    .append(m).append(" min, ")
+                                    .append(s).append(" sek");
+                        } else {
+                            msg.append("\n✅ Roślina gotowa do zbioru!");
+                        }
+                    } else {
+                        msg.append("\nBrak danych o czasie rozpoczęcia — kliknij START.");
+                    }
+
+                    msg.append("\n\n");
+                }
+            }
+
+            if (msg.length() == 0) {
+                msg.append("Brak przypisanych roślin.");
+            }
+
+            new AlertDialog.Builder(this)
+                    .setTitle("Wzrost roślin")
+                    .setMessage(msg.toString())
+                    .setPositiveButton("OK", null)
+                    .show();
+        });
+    }
+
+    @SuppressLint("MissingPermission")
+    private void startDiscovery() {
+        foundDevices.clear();
+        deviceNames.clear();
+
+        if (bluetoothAdapter.isDiscovering()) {
+            bluetoothAdapter.cancelDiscovery();
+        }
+
+        boolean started = bluetoothAdapter.startDiscovery();
+        if (started) {
+            Toast.makeText(this, "Rozpoczęto skanowanie urządzeń Bluetooth...", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Nie udało się rozpocząć skanowania", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showDevicesDialog() {
+        BluetoothDevice[] deviceArray = foundDevices.toArray(new BluetoothDevice[0]);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Wybierz urządzenie Bluetooth")
+                .setItems(deviceNames.toArray(new String[0]), (dialog, which) -> {
+                    SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                    prefs.edit().putString(PREF_ARDUINO_ADDRESS, deviceArray[which].getAddress()).apply();
+                    Toast.makeText(this, "Zapisano: " + deviceNames.get(which), Toast.LENGTH_SHORT).show();
+                })
+                .show();
+    }
+
+    @SuppressLint("MissingPermission")
+    private void sendBluetoothCommand(String command) {
+        try {
+            if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
+                Toast.makeText(this, "Bluetooth wyłączony", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            String macAddress = prefs.getString(PREF_ARDUINO_ADDRESS, null);
+
+            if (macAddress == null) {
+                Toast.makeText(this, "Nie wybrano urządzenia Arduino", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            BluetoothDevice targetDevice = bluetoothAdapter.getRemoteDevice(macAddress);
+            UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+
+            BluetoothSocket socket = targetDevice.createRfcommSocketToServiceRecord(uuid);
+            bluetoothAdapter.cancelDiscovery();
+            socket.connect();
+
+            OutputStream outStream = socket.getOutputStream();
+            outStream.write(command.getBytes());
+            outStream.flush();
+
+            outStream.close();
+            socket.close();
+
+            Toast.makeText(this, "Wysłano komendę: " + command, Toast.LENGTH_SHORT).show();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Błąd połączenia Bluetooth: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private boolean checkPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        } else {
+            return true;
+        }
+    }
+
+    private void requestPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT}, REQUEST_PERMISSION_BT);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_PERMISSION_BT);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(receiver);
+    }
+}
