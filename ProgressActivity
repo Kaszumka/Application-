@@ -1,0 +1,127 @@
+package com.example.projekt_roslinki2;
+
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.os.Handler;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.graphics.Color;
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.view.ViewGroup.LayoutParams;
+
+public class ProgressActivity extends AppCompatActivity {
+
+    private ProgressBar progressBar;
+    private TextView progressText;
+    private LinearLayout shelfStatusContainer;
+    private Handler handler = new Handler();
+
+    private ImageButton btnBackHome;
+    private SharedPreferences prefs;
+    private static final String PREFS_NAME = "ShelfPrefs";
+
+    private int shelvesCount;
+    private TextView[] shelfStatuses;
+
+    private int globalProgress = 0;
+    private int shelfProgress = 0;
+    private int currentShelfIndex = 0;
+
+    private static final int PROGRESS_DELAY_MS = 50;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_progress);
+
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+
+        progressBar = findViewById(R.id.progressBar);
+        progressBar.getProgressDrawable().setColorFilter(Color.BLACK, android.graphics.PorterDuff.Mode.SRC_IN);
+        progressText = findViewById(R.id.progressText);
+        progressText.setTextColor(Color.BLACK);
+        shelfStatusContainer = findViewById(R.id.shelfStatusContainer);
+        btnBackHome = findViewById(R.id.btnBackHome);
+
+        btnBackHome.setOnClickListener(v -> {
+            startActivity(new Intent(ProgressActivity.this, MainActivity.class));
+            finish();
+        });
+
+        shelvesCount = prefs.getInt("shelves_count", 4);
+
+        createShelfStatusViews();
+        startProgress();
+    }
+
+    private void createShelfStatusViews() {
+        shelfStatusContainer.removeAllViews();
+        shelfStatuses = new TextView[shelvesCount];
+
+        for (int i = 0; i < shelvesCount; i++) {
+            TextView shelfText = new TextView(this);
+            shelfText.setLayoutParams(new LayoutParams(
+                    LayoutParams.WRAP_CONTENT,
+                    LayoutParams.WRAP_CONTENT));
+            shelfText.setTextSize(16);
+            shelfText.setPadding(0, 0, 0, 16);
+
+            String plantName = prefs.getString("shelf" + (i + 1) + "_plant", "---");
+            shelfText.setText("Półka " + (i + 1) + ": " + plantName + " - 0%");
+            shelfText.setTextColor(Color.BLACK);
+            shelfStatusContainer.addView(shelfText);
+            shelfStatuses[i] = shelfText;
+        }
+    }
+
+    private void startProgress() {
+        globalProgress = 0;
+        shelfProgress = 0;
+        currentShelfIndex = 0;
+
+        // Czas startu wzrostu roślin jest już ustawiany w MainActivity przy Start
+
+        progressBar.setProgress(globalProgress);
+        progressText.setText("Postęp: 0%");
+        progressText.setTextColor(Color.BLACK);
+
+        handler.post(progressRunnable);
+    }
+
+    private final Runnable progressRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (currentShelfIndex < shelvesCount) {
+                if (shelfProgress <= 100) {
+                    String plantName = prefs.getString("shelf" + (currentShelfIndex + 1) + "_plant", "---");
+                    shelfStatuses[currentShelfIndex].setText("Półka " + (currentShelfIndex + 1) + ": " + plantName + " - " + shelfProgress + "%");
+                    shelfStatuses[currentShelfIndex].setTextColor(Color.BLACK);
+                    int completedShelvesProgress = (currentShelfIndex * 100) / shelvesCount;
+                    int currentShelfContribution = (shelfProgress / shelvesCount);
+                    globalProgress = completedShelvesProgress + currentShelfContribution;
+
+                    progressBar.setProgress(globalProgress);
+                    progressText.setText("Postęp: " + globalProgress + "%");
+                    progressText.setTextColor(Color.BLACK);
+                    shelfProgress++;
+                    handler.postDelayed(this, PROGRESS_DELAY_MS);
+                } else {
+                    shelfProgress = 0;
+                    currentShelfIndex++;
+                    handler.postDelayed(this, PROGRESS_DELAY_MS);
+                }
+            } else {
+                progressBar.setProgress(100);
+                progressText.setText("Postęp: 100%");
+                for (int i = 0; i < shelvesCount; i++) {
+                    String plantName = prefs.getString("shelf" + (i + 1) + "_plant", "---");
+                    shelfStatuses[i].setText("Półka " + (i + 1) + ": " + plantName + " - 100%");
+                }
+            }
+        }
+    };
+}
