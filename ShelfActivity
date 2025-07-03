@@ -1,0 +1,207 @@
+package com.example.projekt_roslinki2;
+
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.view.Gravity;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.Toast;
+import android.graphics.Color;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+public class ShelfActivity extends AppCompatActivity {
+
+    private LinearLayout shelfContainer;
+    private SharedPreferences prefs;
+    private static final String PREFS_NAME = "ShelfPrefs";
+
+    private List<Rosliny> plantList; // lista roślin pobierana z DodanieRosliny
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_shelf);
+
+        shelfContainer = findViewById(R.id.shelfContainer);
+        prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+
+        plantList = dodanie_rosliny.getPlantList();
+
+        loadShelvesFromPrefs();
+
+        findViewById(R.id.btnAddShelf).setOnClickListener(v -> addShelf());
+
+        findViewById(R.id.btnRemoveShelf).setOnClickListener(v -> removeShelf());
+
+        findViewById(R.id.btnBackHomeszafa).setOnClickListener(v -> finish());
+    }
+
+    private void loadShelvesFromPrefs() {
+        Set<String> keys = prefs.getAll().keySet();
+        Set<Integer> shelfNumbers = new HashSet<>();
+        for (String key : keys) {
+            if (key.startsWith("shelf") && key.endsWith("_plant")) {
+                try {
+                    String numStr = key.substring(5, key.length() - 6);
+                    int num = Integer.parseInt(numStr);
+                    shelfNumbers.add(num);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        if (shelfNumbers.isEmpty()) {
+            addShelf(); // dodaj pustą półkę jeśli nic nie ma
+        } else {
+            for (int num : shelfNumbers) {
+                String plantName = prefs.getString("shelf" + num + "_plant", null);
+                addShelfWithPlant(num, plantName);
+            }
+        }
+
+        saveShelvesCount(); // ważne, zapisz ilość półek na start
+    }
+
+    private int getNextShelfNumber() {
+        int max = 0;
+        int count = shelfContainer.getChildCount();
+        for (int i = 0; i < count; i++) {
+            LinearLayout shelfLayout = (LinearLayout) shelfContainer.getChildAt(i);
+            Button shelfButton = (Button) shelfLayout.getChildAt(0);
+            String text = shelfButton.getText().toString();
+            try {
+                int colonIndex = text.indexOf(":");
+                String prefix = text.substring(0, colonIndex).trim(); // "Półka N"
+                String[] parts = prefix.split(" ");
+                int num = Integer.parseInt(parts[1]);
+                if (num > max) max = num;
+            } catch (Exception ignored) {}
+        }
+        return max + 1;
+    }
+
+    private void addShelf() {
+        int shelfNumber = getNextShelfNumber();
+        addShelfWithPlant(shelfNumber, null);
+        saveShelvesCount(); // ZAPISZ ilość półek po dodaniu
+    }
+
+    private void addShelfWithPlant(int shelfNumber, String plantName) {
+        LinearLayout shelfLayout = new LinearLayout(this);
+        shelfLayout.setOrientation(LinearLayout.HORIZONTAL);
+        shelfLayout.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams shelfLayoutParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        shelfLayoutParams.setMargins(0, 0, 0, 16);
+        shelfLayout.setLayoutParams(shelfLayoutParams);
+
+        Button shelfButton = new Button(this);
+        shelfButton.setLayoutParams(new LinearLayout.LayoutParams(0, 150, 1));
+        String buttonText = "Półka " + shelfNumber + ": " + (plantName == null ? "---" : plantName);
+        shelfButton.setText(buttonText);
+        shelfButton.setBackgroundResource(R.drawable.shelf_background);
+        shelfButton.setTextColor(Color.BLACK);
+
+        ImageButton resetButton = new ImageButton(this);
+        LinearLayout.LayoutParams resetParams = new LinearLayout.LayoutParams(150, 150);
+        resetButton.setLayoutParams(resetParams);
+        resetButton.setImageResource(R.drawable.baseline_refresh_24);
+        resetButton.setBackgroundResource(android.R.color.transparent);
+        resetButton.setContentDescription("Reset półki");
+
+        shelfLayout.addView(shelfButton);
+        shelfLayout.addView(resetButton);
+
+        shelfContainer.addView(shelfLayout);
+
+        shelfButton.setOnClickListener(v -> {
+            if (plantList == null || plantList.isEmpty()) {
+                Toast.makeText(this, "Brak dostępnych roślin. Dodaj rośliny najpierw.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            String[] plantNames = new String[plantList.size()];
+            for (int i = 0; i < plantList.size(); i++) {
+                plantNames[i] = plantList.get(i).getName();
+            }
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("Wybierz roślinę dla półki " + shelfNumber);
+            builder.setItems(plantNames, (dialog, which) -> {
+                Rosliny selected = plantList.get(which);
+                String selectedPlant = selected.getName();
+                int growthTime = selected.getGrowthTime();
+
+                shelfButton.setText("Półka " + shelfNumber + ": " + selectedPlant);
+
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.putString("shelf" + shelfNumber + "_plant", selectedPlant);
+                editor.putInt("shelf" + shelfNumber + "_growthTime", growthTime);
+                // Usuwamy stare czasy startu i dane _last przy zmianie rośliny
+                editor.remove("shelf" + shelfNumber + "_startTime");
+                editor.remove("shelf" + shelfNumber + "_plant_last");
+                editor.remove("shelf" + shelfNumber + "_growthTime_last");
+                editor.apply();
+
+                Toast.makeText(this, "Roślina przypisana do półki", Toast.LENGTH_SHORT).show();
+            });
+            builder.show();
+        });
+
+        resetButton.setOnClickListener(v -> {
+            shelfButton.setText("Półka " + shelfNumber + ": ---");
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.remove("shelf" + shelfNumber + "_plant");
+            editor.remove("shelf" + shelfNumber + "_growthTime");
+            editor.remove("shelf" + shelfNumber + "_startTime");
+            editor.remove("shelf" + shelfNumber + "_plant_last");
+            editor.remove("shelf" + shelfNumber + "_growthTime_last");
+            editor.apply();
+            Toast.makeText(this, "Półka zresetowana", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private void removeShelf() {
+        int count = shelfContainer.getChildCount();
+        if (count == 0) {
+            Toast.makeText(this, "Brak półek do usunięcia", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        LinearLayout lastShelfLayout = (LinearLayout) shelfContainer.getChildAt(count - 1);
+        Button shelfButton = (Button) lastShelfLayout.getChildAt(0);
+
+        String text = shelfButton.getText().toString();
+        String shelfNumberStr = text.split(":")[0].replace("Półka ", "").trim();
+        int shelfNumber;
+        try {
+            shelfNumber = Integer.parseInt(shelfNumberStr);
+        } catch (NumberFormatException e) {
+            shelfNumber = -1;
+        }
+        if (shelfNumber != -1) {
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.remove("shelf" + shelfNumber + "_plant");
+            editor.remove("shelf" + shelfNumber + "_growthTime");
+            editor.remove("shelf" + shelfNumber + "_startTime");
+            editor.remove("shelf" + shelfNumber + "_plant_last");
+            editor.remove("shelf" + shelfNumber + "_growthTime_last");
+            editor.apply();
+        }
+
+        shelfContainer.removeViewAt(count - 1);
+        saveShelvesCount();
+        Toast.makeText(this, "Usunięto ostatnią półkę", Toast.LENGTH_SHORT).show();
+    }
+
+    private void saveShelvesCount() {
+        int count = shelfContainer.getChildCount();
+        prefs.edit().putInt("shelves_count", count).apply();
+    }
+}
