@@ -55,7 +55,7 @@ Modules:
 
 ## 🖼️ Current UI
 
-<p float="center">
+<p float="left">
   <img src="https://github.com/user-attachments/assets/015ceb11-860c-4ab5-872f-6e09d5dd3987" alt="Main Menu" width="400"/>
   <img src="https://github.com/user-attachments/assets/1f871734-6a9e-43a1-80af-93753205a9f2" alt="Bez nazwy1" width="400"/>
   <img src="https://github.com/user-attachments/assets/41b7f0a2-0009-4d70-bbee-63e56c278c1e" alt="Bez nazwy2" width="400"/>
