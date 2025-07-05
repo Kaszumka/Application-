@@ -53,5 +53,12 @@ Modules:
 - Creating same app but for IOS
 - Wi-Fi/cloud support for remote access
 
+## 🖼️ Current UI
 ![Main Menu](https://github.com/user-attachments/assets/015ceb11-860c-4ab5-872f-6e09d5dd3987)
+![Bez nazwy1](https://github.com/user-attachments/assets/1f871734-6a9e-43a1-80af-93753205a9f2)
+![Bez nazwy2](https://github.com/user-attachments/assets/41b7f0a2-0009-4d70-bbee-63e56c278c1e)
+![Bez nazwy3](https://github.com/user-attachments/assets/4336e76e-5c5c-4181-ae9d-fecbfddda241)
+![Bez nazwy4](https://github.com/user-attachments/assets/52fb5bd4-28c6-46d5-b0e3-a54f42c735c0)
+
+
 
