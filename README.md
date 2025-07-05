@@ -53,4 +53,5 @@ Modules:
 - Creating same app but for IOS
 - Wi-Fi/cloud support for remote access
 
+![Main Menu](https://github.com/user-attachments/assets/015ceb11-860c-4ab5-872f-6e09d5dd3987)
 
