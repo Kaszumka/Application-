@@ -61,6 +61,8 @@ Modules:
   <img src="https://github.com/user-attachments/assets/41b7f0a2-0009-4d70-bbee-63e56c278c1e" alt="Bez nazwy2" width="400"/>
   <img src="https://github.com/user-attachments/assets/4336e76e-5c5c-4181-ae9d-fecbfddda241" alt="Bez nazwy3" width="400"/>
   <img src="https://github.com/user-attachments/assets/52fb5bd4-28c6-46d5-b0e3-a54f42c735c0" alt="Bez nazwy4" width="400"/>
+  <img src="https://github.com/user-attachments/assets/2894aeeb-1da4-43a7-90c6-b423dc92d71e" alt="Bez nazwy5" width="400"/>
+
 </p>
 
 
